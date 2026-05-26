@@ -1,0 +1,110 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/stocksync
+    username: ${DB_USER}
+    password: ${DB_PASS}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+  task:
+    execution:
+      pool:
+        core-size: 4
+        max-size: 8
+        queue-capacity: 100
+  security:
+    oauth2:
+      client:
+        registration:
+          mercadolibre:
+            client-id: ${ML_CLIENT_ID}
+            client-secret: ${ML_CLIENT_SECRET}
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/mercadolibre"
+            scope: read,write,offline_access
+        provider:
+          mercadolibre:
+            authorization-uri: https://auth.mercadolibre.com.ar/authorization
+            token-uri: https://api.mercadolibre.com/oauth/token
+            user-info-uri: https://api.mercadolibre.com/users/me
+            user-name-attribute: id
+
+mercadolibre:
+  client-id: ${ML_CLIENT_ID}
+  client-secret: ${ML_CLIENT_SECRET}
+  webhook-secret: ${ML_WEBHOOK_SECRET}
+  base-url: https://api.mercadolibre.com
+  seller-id: ${ML_SELLER_ID}
+
+tango:
+  base-url: ${TANGO_API_URL}
+  api-key: ${TANGO_API_KEY}
+  empresa: ${TANGO_EMPRESA}
+
+google:
+  sheets:
+    spreadsheet-id: ${SHEETS_ID}
+    credentials-path: credentials.json
+    stock-sheet-name: Stock
+    sku-column: A
+    stock-column: B
+    name-column: C
+    price-column: D
+
+sync:
+  scheduler:
+    tango-poll-interval-ms: 300000
+    sheets-poll-interval-ms: 600000
+    price-poll-interval-ms: 900000
+
+# Spring AI - OpenAI
+spring:
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY}
+      chat:
+        options:
+          model: gpt-4o-mini
+          temperature: 0.2
+
+# Notificaciones
+notification:
+  email:
+    enabled: true
+    destinatario: ${NOTIFICATION_EMAIL}
+  webhook:
+    enabled: false
+    url: ${NOTIFICATION_WEBHOOK_URL:}
+
+# Spring Mail
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME}
+    password: ${MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+# Análisis de IA
+ai:
+  analysis:
+    enabled: true
+    # Cada cuánto corre el análisis automático (por defecto: cada hora)
+    scheduler-interval-ms: 3600000
+    # Días de historial a analizar para calcular velocidad de ventas
+    historial-dias: 30
+    # Stock mínimo de días de cobertura para alertar
+    dias-cobertura-alerta: 7
+  agent:
+    # Máximo de reintentos del ExecutorAgent cuando el CheckerAgent rechaza el resultado
+    max-retries: 3
