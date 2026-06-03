@@ -10,6 +10,9 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,8 +30,11 @@ public class MovimientoStockService {
     /**
      * Registra un movimiento y aplica el cambio de stock al StockItem.
      * Es el único punto de entrada para modificar stock manualmente.
+     * Usa @Retryable para manejar conflictos de concurrencia (Optimistic Locking).
      */
     @Transactional
+    @Retryable(retryFor = ObjectOptimisticLockingFailureException.class,
+               maxAttempts = 3, backoff = @Backoff(delay = 100, multiplier = 2))
     public MovimientoStock registrarYAplicar(
             String sku,
             MovimientoStock.TipoMovimiento tipo,

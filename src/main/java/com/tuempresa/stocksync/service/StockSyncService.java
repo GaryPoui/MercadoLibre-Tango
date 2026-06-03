@@ -8,6 +8,7 @@ import com.tuempresa.stocksync.model.MovimientoStock;
 import com.tuempresa.stocksync.model.StockItem;
 import com.tuempresa.stocksync.model.SyncEvent;
 import com.tuempresa.stocksync.model.SyncLog;
+import com.tuempresa.stocksync.model.SyncPendiente;
 import com.tuempresa.stocksync.repository.StockRepository;
 import com.tuempresa.stocksync.repository.SyncLogRepository;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +34,7 @@ public class StockSyncService {
     private final SyncLogRepository syncLogRepository;
     private final KitService kitService;
     private final MovimientoStockService movimientoService;
+    private final SyncOutboxService outboxService;
 
     /**
      * FLUJO 1: Venta en MercadoLibre → descuenta stock en Tango y Sheets.
@@ -70,7 +72,17 @@ public class StockSyncService {
         int nuevoStock = Math.max(0, stockAnterior - soldQty);
 
         try {
-            // Actualizar Tango y Sheets en paralelo
+            // Actualizar BD local primero (fuente de verdad)
+            item.setStock(nuevoStock);
+            item.setUltimaSincronizacion(LocalDateTime.now());
+            stockRepository.save(item);
+
+            // Registrar movimiento en el historial
+            movimientoService.registrar(sku, MovimientoStock.TipoMovimiento.EGRESO_VENTA,
+                    soldQty, stockAnterior, nuevoStock, null,
+                    "Venta MercadoLibre", event.getOrderId(), "ML-WEBHOOK");
+
+            // Actualizar Tango y Sheets en paralelo (con outbox en caso de fallo)
             final StockItem finalItem = item;
             final int finalNuevoStock = nuevoStock;
 
@@ -79,8 +91,11 @@ public class StockSyncService {
                     tangoClient.updateStock(finalItem.getTangoProductoId() != null
                             ? finalItem.getTangoProductoId() : finalItem.getSku(), finalNuevoStock);
                 } catch (Exception e) {
-                    log.error("Error actualizando Tango para sku={}: {}", finalItem.getSku(), e.getMessage());
-                    throw new RuntimeException(e);
+                    log.error("Error actualizando Tango para sku={}: {}. Registrando en outbox.", finalItem.getSku(), e.getMessage());
+                    outboxService.registrarPendiente(finalItem.getSku(),
+                            SyncPendiente.DestinoSync.TANGO,
+                            SyncPendiente.TipoOperacion.UPDATE_STOCK,
+                            String.valueOf(finalNuevoStock));
                 }
             });
 
@@ -92,22 +107,15 @@ public class StockSyncService {
                         log.warn("No se tiene número de fila en Sheets para sku={}", finalItem.getSku());
                     }
                 } catch (Exception e) {
-                    log.error("Error actualizando Sheets para sku={}: {}", finalItem.getSku(), e.getMessage());
-                    throw new RuntimeException(e);
+                    log.error("Error actualizando Sheets para sku={}: {}. Registrando en outbox.", finalItem.getSku(), e.getMessage());
+                    outboxService.registrarPendiente(finalItem.getSku(),
+                            SyncPendiente.DestinoSync.SHEETS,
+                            SyncPendiente.TipoOperacion.UPDATE_STOCK,
+                            String.valueOf(finalNuevoStock));
                 }
             });
 
             CompletableFuture.allOf(tangoFuture, sheetsFuture).join();
-
-            // Actualizar BD local
-            item.setStock(nuevoStock);
-            item.setUltimaSincronizacion(LocalDateTime.now());
-            stockRepository.save(item);
-
-            // Registrar movimiento en el historial
-            movimientoService.registrar(sku, MovimientoStock.TipoMovimiento.EGRESO_VENTA,
-                    soldQty, stockAnterior, nuevoStock, null,
-                    "Venta MercadoLibre", event.getOrderId(), "ML-WEBHOOK");
 
             saveLog(sku, SyncLog.SyncOrigin.MERCADOLIBRE, SyncLog.SyncStatus.OK,
                     stockAnterior, nuevoStock, null);

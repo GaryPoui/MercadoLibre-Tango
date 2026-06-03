@@ -62,6 +62,8 @@ sync:
     tango-poll-interval-ms: 300000
     sheets-poll-interval-ms: 600000
     price-poll-interval-ms: 900000
+    outbox-retry-interval-ms: 60000
+    variantes-poll-interval-ms: 600000
 
 # Spring AI - OpenAI
 spring:

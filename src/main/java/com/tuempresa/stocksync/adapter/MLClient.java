@@ -14,6 +14,7 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Map;
 
 @Component
@@ -85,6 +86,54 @@ public class MLClient {
     public int getCurrentStock(String mlItemId) {
         MLItemResponse item = getItem(mlItemId);
         return item != null ? item.getAvailableQuantity() : 0;
+    }
+
+    /**
+     * Actualiza el stock de una variante específica dentro de un ítem.
+     */
+    @Retryable(retryFor = RestClientException.class, maxAttempts = 3, backoff = @Backoff(delay = 2000, multiplier = 2))
+    public void updateVariationStock(String mlItemId, String variationId, int newStock) {
+        log.info("Actualizando stock variante ML: itemId={} variationId={} nuevoStock={}",
+                mlItemId, variationId, newStock);
+        restClient.put()
+                .uri(mlConfig.getBaseUrl() + "/items/{id}/variations/{variationId}",
+                        mlItemId, variationId)
+                .header("Authorization", "Bearer " + getAccessToken())
+                .body(Map.of("available_quantity", newStock))
+                .retrieve()
+                .toBodilessEntity();
+    }
+
+    /**
+     * Actualiza el precio de una variante específica dentro de un ítem.
+     */
+    @Retryable(retryFor = RestClientException.class, maxAttempts = 3, backoff = @Backoff(delay = 2000, multiplier = 2))
+    public void updateVariationPrice(String mlItemId, String variationId, BigDecimal newPrice) {
+        log.info("Actualizando precio variante ML: itemId={} variationId={} nuevoPrecio={}",
+                mlItemId, variationId, newPrice);
+        restClient.put()
+                .uri(mlConfig.getBaseUrl() + "/items/{id}/variations/{variationId}",
+                        mlItemId, variationId)
+                .header("Authorization", "Bearer " + getAccessToken())
+                .body(Map.of("price", newPrice))
+                .retrieve()
+                .toBodilessEntity();
+    }
+
+    /**
+     * Actualiza los atributos (color, talle, etc.) de una variante en ML.
+     */
+    @Retryable(retryFor = RestClientException.class, maxAttempts = 3, backoff = @Backoff(delay = 2000, multiplier = 2))
+    public void updateVariationAttributes(String mlItemId, String variationId,
+                                          List<Map<String, String>> attributeCombinations) {
+        log.info("Actualizando atributos variante ML: itemId={} variationId={}", mlItemId, variationId);
+        restClient.put()
+                .uri(mlConfig.getBaseUrl() + "/items/{id}/variations/{variationId}",
+                        mlItemId, variationId)
+                .header("Authorization", "Bearer " + getAccessToken())
+                .body(Map.of("attribute_combinations", attributeCombinations))
+                .retrieve()
+                .toBodilessEntity();
     }
 
     private String getAccessToken() {

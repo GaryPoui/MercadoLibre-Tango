@@ -3,7 +3,9 @@ package com.tuempresa.stocksync.service;
 import com.tuempresa.stocksync.adapter.MLClient;
 import com.tuempresa.stocksync.adapter.SheetsClient;
 import com.tuempresa.stocksync.adapter.TangoClient;
+import com.tuempresa.stocksync.model.HistorialPrecio;
 import com.tuempresa.stocksync.model.StockItem;
+import com.tuempresa.stocksync.repository.HistorialPrecioRepository;
 import com.tuempresa.stocksync.repository.StockRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -24,6 +26,7 @@ public class PriceSyncService {
     private final MLClient mlClient;
     private final TangoClient tangoClient;
     private final StockRepository stockRepository;
+    private final HistorialPrecioRepository historialPrecioRepository;
 
     private static final BigDecimal TOLERANCIA_PORCENTUAL = new BigDecimal("0.01"); // 1%
 
@@ -60,6 +63,14 @@ public class PriceSyncService {
                 boolean tangoOk = actualizarPrecioTango(item, precioSheets);
 
                 if (mlOk || tangoOk) {
+                    // Registrar en historial de precios
+                    historialPrecioRepository.save(HistorialPrecio.builder()
+                            .sku(sku)
+                            .precioAnterior(item.getPrecio())
+                            .precioNuevo(precioSheets)
+                            .origen(HistorialPrecio.OrigenCambio.SHEETS)
+                            .build());
+
                     item.setPrecio(precioSheets);
                     stockRepository.save(item);
                     actualizados.add(sku);

@@ -2,6 +2,8 @@ package com.tuempresa.stocksync.scheduler;
 
 import com.tuempresa.stocksync.service.PriceSyncService;
 import com.tuempresa.stocksync.service.StockSyncService;
+import com.tuempresa.stocksync.service.SyncOutboxService;
+import com.tuempresa.stocksync.service.VarianteSyncService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -14,6 +16,8 @@ public class SyncScheduler {
 
     private final StockSyncService syncService;
     private final PriceSyncService priceSyncService;
+    private final SyncOutboxService outboxService;
+    private final VarianteSyncService varianteSyncService;
 
     /**
      * Polling periódico Tango → ML + Sheets (stock).
@@ -55,6 +59,40 @@ public class SyncScheduler {
             }
         } catch (Exception e) {
             log.error("Error en scheduler pollPrecios: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Reintento de operaciones fallidas (outbox).
+     * Cada 60 segundos revisa si hay syncs pendientes de reintento.
+     */
+    @Scheduled(fixedDelayString = "${sync.scheduler.outbox-retry-interval-ms:60000}")
+    public void retryOutbox() {
+        try {
+            int procesados = outboxService.procesarPendientes();
+            if (procesados > 0) {
+                log.info("Scheduler outbox: {} operaciones reintentadas con éxito", procesados);
+            }
+        } catch (Exception e) {
+            log.error("Error en scheduler retryOutbox: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Sincronización de variantes (stock + precio) hacia ML.
+     * Por defecto cada 10 minutos.
+     */
+    @Scheduled(fixedDelayString = "${sync.scheduler.variantes-poll-interval-ms:600000}")
+    public void pollVariantes() {
+        log.debug("Scheduler: iniciando sync de variantes");
+        try {
+            int stockSync = varianteSyncService.syncVariantesStock();
+            int precioSync = varianteSyncService.syncVariantesPrecios();
+            if (stockSync > 0 || precioSync > 0) {
+                log.info("Scheduler variantes: {} stock + {} precios sincronizados", stockSync, precioSync);
+            }
+        } catch (Exception e) {
+            log.error("Error en scheduler pollVariantes: {}", e.getMessage(), e);
         }
     }
 }
