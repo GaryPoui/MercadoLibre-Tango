@@ -7,6 +7,7 @@ import com.tuempresa.stocksync.service.DepositoService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -26,11 +27,13 @@ public class DepositoController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Deposito> create(@Valid @RequestBody Deposito deposito) {
         return ResponseEntity.ok(depositoRepository.save(deposito));
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Deposito> update(@PathVariable Long id, @RequestBody Deposito deposito) {
         return depositoRepository.findById(id).map(d -> {
             d.setNombre(deposito.getNombre());

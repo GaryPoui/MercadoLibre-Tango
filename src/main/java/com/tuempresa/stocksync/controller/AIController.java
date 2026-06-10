@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -31,6 +32,7 @@ public class AIController {
      * Útil para forzar el análisis sin esperar el scheduler.
      */
     @PostMapping("/analizar")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     public ResponseEntity<AIAnalysisResult> analizarAhora() {
         List<StockAnalyticsData> metricas = analyticsService.calcularMetricas();
         AIAnalysisResult resultado = aiAnalysisService.analizarStock(metricas);
@@ -98,6 +100,7 @@ public class AIController {
      * Marca una alerta como resuelta.
      */
     @PatchMapping("/alertas/{id}/resolver")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     public ResponseEntity<StockAlert> resolverAlerta(@PathVariable Long id) {
         return alertRepository.findById(id).map(alerta -> {
             alerta.setEstado(StockAlert.AlertStatus.RESUELTA);
@@ -110,6 +113,7 @@ public class AIController {
      * Marca una alerta como ignorada.
      */
     @PatchMapping("/alertas/{id}/ignorar")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     public ResponseEntity<StockAlert> ignorarAlerta(@PathVariable Long id) {
         return alertRepository.findById(id).map(alerta -> {
             alerta.setEstado(StockAlert.AlertStatus.IGNORADA);

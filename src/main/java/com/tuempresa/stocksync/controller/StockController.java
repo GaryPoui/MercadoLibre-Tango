@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -38,6 +39,7 @@ public class StockController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     public ResponseEntity<StockItem> create(@Valid @RequestBody StockItem item) {
         if (stockRepository.existsBySku(item.getSku())) {
             return ResponseEntity.badRequest().build();
@@ -46,6 +48,7 @@ public class StockController {
     }
 
     @PutMapping("/{sku}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     public ResponseEntity<StockItem> update(@PathVariable String sku,
                                              @Valid @RequestBody StockItem item) {
         return stockRepository.findBySku(sku).map(existing -> {
@@ -60,6 +63,7 @@ public class StockController {
     }
 
     @DeleteMapping("/{sku}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> delete(@PathVariable String sku) {
         return stockRepository.findBySku(sku).map(item -> {
             stockRepository.delete(item);

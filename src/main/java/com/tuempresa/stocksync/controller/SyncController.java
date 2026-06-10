@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -26,6 +27,7 @@ public class SyncController {
      * Fuerza sincronización completa desde Sheets → BD + ML + Tango.
      */
     @PostMapping("/from-sheets")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     public ResponseEntity<Map<String, Object>> syncFromSheets() {
         int count = stockSyncService.syncFromSheets();
         return ResponseEntity.ok(Map.of(
@@ -39,6 +41,7 @@ public class SyncController {
      * Fuerza sincronización desde Tango → ML + Sheets.
      */
     @PostMapping("/from-tango")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     public ResponseEntity<Map<String, String>> syncFromTango() {
         stockSyncService.syncFromTangoToML();
         return ResponseEntity.ok(Map.of("status", "OK", "timestamp", LocalDateTime.now().toString()));
@@ -48,6 +51,7 @@ public class SyncController {
      * Fuerza la actualización de un SKU específico en todos los sistemas.
      */
     @PostMapping("/force/{sku}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     public ResponseEntity<Map<String, Object>> forceSync(
             @PathVariable String sku,
             @RequestParam @Min(0) int stock) {

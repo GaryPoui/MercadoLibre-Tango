@@ -7,6 +7,7 @@ import com.tuempresa.stocksync.repository.StockRepository;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -32,6 +33,7 @@ public class VarianteController {
     }
 
     @PostMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     public ResponseEntity<Variante> create(@Valid @RequestBody Variante variante) {
         StockItem padre = stockRepository.findBySku(variante.getStockItemPadre().getSku())
                 .orElseThrow(() -> new IllegalArgumentException(
@@ -41,6 +43,7 @@ public class VarianteController {
     }
 
     @PutMapping("/{id}/stock")
+    @PreAuthorize("hasAnyRole('ADMIN', 'OPERATOR')")
     public ResponseEntity<Variante> updateStock(@PathVariable Long id, @RequestParam int stock) {
         return varianteRepository.findById(id).map(v -> {
             v.setStock(stock);
@@ -49,6 +52,7 @@ public class VarianteController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deactivate(@PathVariable Long id) {
         return varianteRepository.findById(id).map(v -> {
             v.setActivo(false);
